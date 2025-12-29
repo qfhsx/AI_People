@@ -12,17 +12,25 @@ def submit_task(audio_url):
     if not VisualService:
         raise Exception("Volcengine SDK not installed")
 
-    visual_service = VisualService()
-    visual_service.set_ak(VOLC_ACCESS_KEY)
-    visual_service.set_sk(VOLC_SECRET_KEY)
-    
-    body = {
-        "req_key": "realman_avatar_creation_task",
-        "resource_id": RESOURCE_ID,
-        "audio_url": audio_url
-    }
+    # Temporarily unset proxy for Volcengine (Domestic Service)
+    # to avoid timeout caused by local proxies (e.g. 127.0.0.1:7890)
+    original_http = os.environ.get('http_proxy')
+    original_https = os.environ.get('https_proxy')
     
     try:
+        if 'http_proxy' in os.environ: del os.environ['http_proxy']
+        if 'https_proxy' in os.environ: del os.environ['https_proxy']
+        
+        visual_service = VisualService()
+        visual_service.set_ak(VOLC_ACCESS_KEY)
+        visual_service.set_sk(VOLC_SECRET_KEY)
+        
+        body = {
+            "req_key": "realman_avatar_creation_task",
+            "resource_id": RESOURCE_ID,
+            "audio_url": audio_url
+        }
+        
         # Using generic json method if available
         # SDK might return string or dict depending on version
         resp = visual_service.json("CVSubmitTask", {}, json.dumps(body))
@@ -34,9 +42,14 @@ def submit_task(audio_url):
             return resp['data']['task_id']
         else:
             raise Exception(f"Volcengine Error: {resp}")
-            
+
     except Exception as e:
         raise Exception(f"Volcengine Call Failed: {e}")
+    finally:
+        # Restore proxy settings (in case other services need it)
+        if original_http: os.environ['http_proxy'] = original_http
+        if original_https: os.environ['https_proxy'] = original_https
+
 
 def get_result(task_id):
     if not VisualService:
